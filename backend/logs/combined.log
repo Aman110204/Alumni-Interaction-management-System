@@ -1,0 +1,6 @@
+2026-04-17 10:10:48 [[32minfo[39m]: ✅ Database connected via Prisma
+2026-04-17 10:10:48 [[32minfo[39m]: 🚀 Server running on port 5000 [development]
+2026-04-17 10:21:15 [[33mwarn[39m]: JWT rejected: jwt expired — GET /profile/4006?type=alumni
+2026-04-17 10:21:15 [[33mwarn[39m]: JWT rejected: jwt expired — GET /connections/status/alumni/4006
+2026-04-17 10:22:19 [[32minfo[39m]: ✅ Database connected via Prisma
+2026-04-17 10:22:19 [[32minfo[39m]: 🚀 Server running on port 5000 [development]

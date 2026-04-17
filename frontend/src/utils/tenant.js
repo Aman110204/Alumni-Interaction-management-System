@@ -71,14 +71,17 @@ export function isVisibleToTenant(item, tenant = getCurrentTenant()) {
   if (!item) return false;
   if (!tenant) return true;
 
-  const collegeId = normalizeCollegeId(item.college_id);
+  const collegeId = normalizeCollegeId(item.college_id ?? item.collegeId);
   const targetColleges = Array.isArray(item.target_colleges)
     ? item.target_colleges.map(normalizeCollegeId).filter(Boolean)
+    : Array.isArray(item.targetColleges)
+    ? item.targetColleges.map(normalizeCollegeId).filter(Boolean)
     : [];
+  const isGlobal = item.is_global === true || item.isGlobal === true;
 
   return (
     collegeId === tenant ||
-    item.is_global === true ||
+    isGlobal ||
     targetColleges.includes(tenant)
   );
 }
@@ -90,7 +93,7 @@ export function filterTenantScoped(items, tenant = getCurrentTenant()) {
 export function filterUsersByCollege(items, mode = 'my_college', tenant = getCurrentTenant()) {
   const list = Array.isArray(items) ? items : [];
   if (mode === 'all_colleges' || !tenant) return list;
-  return list.filter(item => normalizeCollegeId(item?.college_id) === tenant);
+  return list.filter(item => normalizeCollegeId(item?.college_id ?? item?.collegeId) === tenant);
 }
 
 export function getCollegeName(collegeId) {

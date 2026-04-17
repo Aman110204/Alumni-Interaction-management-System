@@ -1,0 +1,393 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CHANGE LOG (multi-tenancy)
+//
+//  • College.subdomain  – new unique field, auto-derived from college name.
+//                         Populated by the createCollege() helper.
+//                         Existing rows: run the backfill migration below once:
+//
+//    UPDATE colleges SET subdomain = id WHERE subdomain IS NULL;
+//
+//  Everything else is unchanged.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model College {
+  id        String   @id @db.VarChar(80)
+  name      String   @db.VarChar(200)
+  /// Unique URL-safe subdomain used for lvh.me routing, e.g. "skit".
+  /// Auto-generated from `name` via createCollege(). Never null after creation.
+  subdomain String?  @unique @db.VarChar(80)
+  location  String?  @db.VarChar(120)
+  code      String?  @db.VarChar(50)
+  domain    String?  @db.VarChar(255)
+  isActive  Boolean  @default(true) @map("is_active")
+  metadata  Json     @default("{}") @db.JsonB
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  students Student[]
+  alumni   Alumni[]
+  admins   Admin[]
+
+  @@map("colleges")
+}
+
+model Student {
+  id           Int      @id @default(autoincrement())
+  collegeId    String   @map("college_id") @db.VarChar(80)
+  email        String   @db.VarChar(120)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  fullName     String   @map("full_name") @db.VarChar(120)
+  department   String?  @db.VarChar(80)
+  year         Int?
+  rollNumber   String?  @map("roll_number") @db.VarChar(40)
+  phone        String?  @db.VarChar(20)
+  bio          String?
+  headline     String?  @db.VarChar(255)
+  location     String?  @db.VarChar(255)
+  linkedinUrl  String?  @map("linkedin_url")
+  githubUrl    String?  @map("github_url")
+  resumeUrl    String?  @map("resume_url")
+  profilePhoto String?  @map("profile_photo")
+  skills       String?
+  profileLinks Json     @default("[]") @map("profile_links") @db.JsonB
+  isActive     Boolean  @default(true) @map("is_active")
+  isApproved   Boolean  @default(false) @map("is_approved")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  college College @relation(fields: [collegeId], references: [id])
+
+  @@unique([email, collegeId])
+  @@index([collegeId, year])
+  @@map("students")
+}
+
+model Alumni {
+  id                  Int      @id @default(autoincrement())
+  collegeId           String   @map("college_id") @db.VarChar(80)
+  email               String   @db.VarChar(120)
+  passwordHash        String   @map("password_hash") @db.VarChar(255)
+  fullName            String   @map("full_name") @db.VarChar(120)
+  department          String?  @db.VarChar(80)
+  graduationYear      Int?     @map("graduation_year")
+  company             String?  @db.VarChar(120)
+  designation         String?  @db.VarChar(120)
+  phone               String?  @db.VarChar(20)
+  bio                 String?
+  headline            String?  @db.VarChar(255)
+  location            String?  @db.VarChar(120)
+  linkedinUrl         String?  @map("linkedin_url")
+  githubUrl           String?  @map("github_url")
+  profilePhoto        String?  @map("profile_photo")
+  skills              String?
+  profileLinks        Json     @default("[]") @map("profile_links") @db.JsonB
+  availableMentorship Boolean  @default(false) @map("available_mentorship")
+  availableReferral   Boolean  @default(true) @map("available_referral")
+  status              String   @default("pending") @db.VarChar(20)
+  isActive            Boolean  @default(true) @map("is_active")
+  isApproved          Boolean  @default(false) @map("is_approved")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  college            College             @relation(fields: [collegeId], references: [id])
+  careerTimeline     CareerTimeline[]
+  mentorshipRequests MentorshipRequest[] @relation("AlumniMentorship")
+  referralRequests   ReferralRequest[]   @relation("AlumniReferral")
+
+  @@unique([email, collegeId])
+  @@index([collegeId, graduationYear])
+  @@index([company])
+  @@index([department])
+  @@map("alumni")
+}
+
+model Admin {
+  id           Int      @id @default(autoincrement())
+  collegeId    String?  @map("college_id") @db.VarChar(80)
+  fullName     String   @map("full_name") @db.VarChar(120)
+  username     String?  @db.VarChar(80)
+  email        String   @unique @db.VarChar(120)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  college College? @relation(fields: [collegeId], references: [id])
+
+  @@map("admins")
+}
+
+model EducationHistory {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @map("user_id")
+  userRole     String   @map("user_role") @db.VarChar(20)
+  collegeId    String   @map("college_id") @db.VarChar(100)
+  institution  String   @db.VarChar(255)
+  degree       String?  @db.VarChar(255)
+  fieldOfStudy String?  @map("field_of_study") @db.VarChar(255)
+  startYear    Int?     @map("start_year")
+  endYear      Int?     @map("end_year")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([userId, userRole, collegeId])
+  @@map("education_history")
+}
+
+model CareerTimeline {
+  id        Int       @id @default(autoincrement())
+  alumniId  Int       @map("alumni_id")
+  collegeId String    @map("college_id") @db.VarChar(100)
+  company   String    @db.VarChar(255)
+  role      String    @db.VarChar(255)
+  startDate DateTime? @map("start_date") @db.Date
+  endDate   DateTime? @map("end_date") @db.Date
+  isCurrent Boolean   @default(false) @map("is_current")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  alumni Alumni @relation(fields: [alumniId], references: [id], onDelete: Cascade)
+
+  @@index([alumniId, collegeId])
+  @@map("career_timeline")
+}
+
+model Opportunity {
+  id             Int       @id @default(autoincrement())
+  collegeId      String    @map("college_id") @db.VarChar(80)
+  alumniId       Int?      @map("alumni_id")
+  title          String    @db.VarChar(200)
+  company        String?   @db.VarChar(120)
+  description    String?
+  jobType        String?   @map("job_type") @db.VarChar(40)
+  location       String?   @db.VarChar(120)
+  skillsRequired String?   @map("skills_required")
+  salary         String?   @db.VarChar(80)
+  applyLink      String?   @map("apply_link")
+  deadline       DateTime? @db.Date
+  status         String    @default("active") @db.VarChar(20)
+  openingsCount  Int       @default(1) @map("openings_count")
+  isGlobal       Boolean   @default(false) @map("is_global")
+  targetColleges String[]  @map("target_colleges")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  applications JobApplication[]
+
+  @@map("opportunities")
+}
+
+model JobApplication {
+  id            Int      @id @default(autoincrement())
+  opportunityId Int      @map("opportunity_id")
+  studentId     Int      @map("student_id")
+  collegeId     String   @map("college_id") @db.VarChar(80)
+  coverLetter   String?  @map("cover_letter")
+  status        String   @default("pending") @db.VarChar(30)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  opportunity Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  @@unique([opportunityId, studentId])
+  @@map("job_applications")
+}
+
+model Event {
+  id              Int       @id @default(autoincrement())
+  collegeId       String    @map("college_id") @db.VarChar(80)
+  adminId         Int?      @map("admin_id")
+  title           String    @db.VarChar(200)
+  description     String?
+  eventType       String?   @map("event_type") @db.VarChar(60)
+  organizer       String?   @db.VarChar(120)
+  speaker         String?   @db.VarChar(120)
+  location        String?   @db.VarChar(200)
+  eventDate       DateTime? @map("event_date") @db.Timestamptz
+  timeSlot        String?   @map("time_slot") @db.VarChar(50)
+  maxCapacity     Int?      @map("max_capacity")
+  bannerUrl       String?   @map("banner_url")
+  registrationUrl String?   @map("registration_url")
+  status          String    @default("upcoming") @db.VarChar(20)
+  isGlobal        Boolean   @default(false) @map("is_global")
+  targetColleges  String[]  @map("target_colleges")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  registrations EventRegistration[]
+
+  @@map("events")
+}
+
+model EventRegistration {
+  id              Int      @id @default(autoincrement())
+  eventId         Int      @map("event_id")
+  participantId   Int      @map("participant_id")
+  participantType String   @default("student") @map("participant_type") @db.VarChar(10)
+  studentId       Int?     @map("student_id")
+  collegeId       String   @map("college_id") @db.VarChar(80)
+  registeredAt    DateTime @default(now()) @map("registered_at") @db.Timestamptz
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, participantId, participantType])
+  @@map("event_registrations")
+}
+
+model MentorshipRequest {
+  id              Int      @id @default(autoincrement())
+  studentId       Int      @map("student_id")
+  alumniId        Int      @map("alumni_id")
+  collegeId       String   @map("college_id") @db.VarChar(100)
+  isCrossCollege  Boolean  @default(false) @map("is_cross_college")
+  status          String   @default("pending") @db.VarChar(20)
+  message         String?
+  response        String?
+  responseMessage String?  @map("response_message")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  alumni Alumni @relation("AlumniMentorship", fields: [alumniId], references: [id], onDelete: Cascade)
+
+  @@index([studentId, collegeId])
+  @@index([alumniId])
+  @@map("mentorship_requests")
+}
+
+model ReferralRequest {
+  id             Int      @id @default(autoincrement())
+  studentId      Int      @map("student_id")
+  alumniId       Int      @map("alumni_id")
+  collegeId      String   @map("college_id") @db.VarChar(100)
+  isCrossCollege Boolean  @default(false) @map("is_cross_college")
+  company        String   @db.VarChar(255)
+  jobTitle       String   @map("job_title") @db.VarChar(255)
+  resumeUrl      String?  @map("resume_url")
+  message        String?
+  status         String   @default("pending") @db.VarChar(20)
+  response       String?
+  notes          String?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  alumni Alumni @relation("AlumniReferral", fields: [alumniId], references: [id], onDelete: Cascade)
+
+  @@index([studentId, collegeId])
+  @@index([alumniId])
+  @@map("referral_requests")
+}
+
+model ConnectionRequest {
+  id             Int       @id @default(autoincrement())
+  requesterId    Int       @map("requester_id")
+  requesterType  String    @map("requester_type") @db.VarChar(20)
+  recipientId    Int       @map("recipient_id")
+  recipientType  String    @map("recipient_type") @db.VarChar(20)
+  collegeId      String?   @map("college_id") @db.VarChar(100)
+  isCrossCollege Boolean   @default(false) @map("is_cross_college")
+  status         String    @default("pending") @db.VarChar(20)
+  message        String?
+  respondedAt    DateTime? @map("responded_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([requesterId, requesterType, recipientId, recipientType])
+  @@index([requesterId, requesterType])
+  @@index([recipientId, recipientType])
+  @@index([status])
+  @@index([collegeId])
+  @@map("connection_requests")
+}
+
+model Conversation {
+  id             Int      @id @default(autoincrement())
+  collegeId      String?  @map("college_id") @db.VarChar(80)
+  isCrossCollege Boolean  @default(false) @map("is_cross_college")
+  isIntroOnly    Boolean  @default(false) @map("is_intro_only")
+  user1Id        Int?     @map("user1_id")
+  user1Type      String?  @map("user1_type") @db.VarChar(10)
+  user2Id        Int?     @map("user2_id")
+  user2Type      String?  @map("user2_type") @db.VarChar(10)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id              Int       @id @default(autoincrement())
+  conversationId  Int       @map("conversation_id")
+  participantId   Int       @map("participant_id")
+  participantType String    @map("participant_type") @db.VarChar(10)
+  lastReadAt      DateTime? @map("last_read_at") @db.Timestamptz
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, participantId, participantType])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id             Int      @id @default(autoincrement())
+  conversationId Int      @map("conversation_id")
+  senderId       Int      @map("sender_id")
+  senderType     String   @map("sender_type") @db.VarChar(10)
+  message        String
+  collegeId      String?  @map("college_id") @db.VarChar(80)
+  isCrossCollege Boolean  @default(false) @map("is_cross_college")
+  isRead         Boolean  @default(false) @map("is_read")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@map("messages")
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  userType  String   @map("user_type") @db.VarChar(20)
+  collegeId String?  @map("college_id") @db.VarChar(100)
+  title     String   @db.VarChar(255)
+  message   String
+  type      String?  @default("general") @db.VarChar(50)
+  link      String?
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([userId, userType, collegeId, isRead])
+  @@map("notifications")
+}
+
+model Announcement {
+  id                Int      @id @default(autoincrement())
+  collegeId         String   @map("college_id") @db.VarChar(80)
+  adminId           Int?     @map("admin_id")
+  title             String   @db.VarChar(200)
+  description       String?
+  postedBy          String?  @map("posted_by") @db.VarChar(120)
+  targetRole        String   @default("all") @map("target_role") @db.VarChar(20)
+  isGlobal          Boolean  @default(false) @map("is_global")
+  targetColleges    String[] @default([]) @map("target_colleges")
+  targetDepartments String[] @default([]) @map("target_departments")
+  targetBatches     Int[]    @default([]) @map("target_batches")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("announcements")
+}

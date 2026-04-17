@@ -12,7 +12,7 @@ import SearchBar from '../components/SearchBar';
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
 
 function StatusBadge({ alumni }) {
-  const s = alumni.status || (alumni.is_approved ? 'approved' : 'pending');
+  const s = alumni.status || ((alumni.is_approved ?? alumni.isApproved) ? 'approved' : 'pending');
   if (s === 'approved') return <span className="badge badge-green">Approved</span>;
   if (s === 'rejected') return <span className="badge badge-red">Rejected</span>;
   return <span className="badge badge-amber">Pending</span>;
@@ -141,20 +141,22 @@ export default function ManageAlumni() {
   };
 
   const handleAction = (action, item) => {
+    const name = item.full_name || item.fullName || 'this alumni';
     const msgs = {
-      approve: `Approve ${item.full_name}? They will gain access to the alumni portal.`,
-      reject:  `Reject registration for ${item.full_name}? They will be notified.`,
-      delete:  `Permanently delete ${item.full_name}? This cannot be undone.`,
+      approve: `Approve ${name}? They will gain access to the alumni portal.`,
+      reject:  `Reject registration for ${name}? They will be notified.`,
+      delete:  `Permanently delete ${name}? This cannot be undone.`,
     };
     setConfirm({ open: true, action, item, message: msgs[action] });
   };
 
   const executeAction = async () => {
     const { action, item } = confirmState;
+    const name = item?.full_name || item?.fullName || 'Alumni';
     setConfirm(p => ({ ...p, open: false }));
     try {
-      if (action === 'approve') { await approveAlumni(item.id); toast(`${item.full_name} approved ✓`); }
-      if (action === 'reject')  { await rejectAlumni(item.id);  toast(`${item.full_name} rejected`); }
+      if (action === 'approve') { await approveAlumni(item.id); toast(`${name} approved ✓`); }
+      if (action === 'reject')  { await rejectAlumni(item.id);  toast(`${name} rejected`); }
       if (action === 'delete')  { await deleteAlumni(item.id);  toast('Alumni deleted'); }
       load();
     } catch (err) {
